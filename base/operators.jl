@@ -405,15 +405,15 @@ end
 # dimensions.
 function setindex_shape_check(X::AbstractArray, I...)
     li = ndims(X)
-    lj = length(I)
+    lj = length(SafeIndices(), I)
     i = j = 1
     while true
-        ii = size(X,i)
+        ii = size(SafeIndices(), X,i)
         jj = I[j]
         if i == li || j == lj
             while i < li
                 i += 1
-                ii *= size(X,i)
+                ii *= size(SafeIndices(), X,i)
             end
             while j < lj
                 j += 1
@@ -438,22 +438,22 @@ function setindex_shape_check(X::AbstractArray, I...)
 end
 
 setindex_shape_check(X::AbstractArray) =
-    (length(X)==1 || throw_setindex_mismatch(X,()))
+    (length(SafeIndices(),X)==1 || throw_setindex_mismatch(X,()))
 
 setindex_shape_check(X::AbstractArray, i) =
-    (length(X)==i || throw_setindex_mismatch(X, (i,)))
+    (length(SafeIndices(),X)==i || throw_setindex_mismatch(X, (i,)))
 
 setindex_shape_check{T}(X::AbstractArray{T,1}, i) =
-    (length(X)==i || throw_setindex_mismatch(X, (i,)))
+    (length(SafeIndices(),X)==i || throw_setindex_mismatch(X, (i,)))
 
 setindex_shape_check{T}(X::AbstractArray{T,1}, i, j) =
-    (length(X)==i*j || throw_setindex_mismatch(X, (i,j)))
+    (length(SafeIndices(),X)==i*j || throw_setindex_mismatch(X, (i,j)))
 
 function setindex_shape_check{T}(X::AbstractArray{T,2}, i, j)
-    if length(X) != i*j
+    if length(SafeIndices(), X) != i*j
         throw_setindex_mismatch(X, (i,j))
     end
-    sx1 = size(X,1)
+    sx1 = size(SafeIndices(), X,1)
     if !(i == 1 || i == sx1 || sx1 == 1)
         throw_setindex_mismatch(X, (i,j))
     end

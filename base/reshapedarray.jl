@@ -37,7 +37,7 @@ end
 length(R::ReshapedArrayIterator) = length(R.iter)
 
 reshape(parent::AbstractArray, ref::AbstractArray) = reshape(indicesbehavior(ref), parent, ref)
-reshape(::IndicesStartAt1, parent::AbstractArray, ref::AbstractArray) = reshape(parent, size(ref))
+@safeindices reshape(::IndicesStartAt1, parent::AbstractArray, ref::AbstractArray) = reshape(parent, size(ref))
 reshape(::IndicesBehavior, parent::AbstractArray, ref::AbstractArray) = reshape(parent, indices(ref))
 
 reshape(parent::AbstractArray, dims::Dims) = _reshape(parent, dims)
@@ -55,7 +55,7 @@ end
 @pure rdims{N}(out::Tuple, sz::Tuple{}, ::Type{Val{N}}) = rdims((out..., 1), (), Val{N})
 @pure rdims{N}(out::Tuple, sz::Tuple{Any, Vararg{Any}}, ::Type{Val{N}}) = rdims((out..., first(sz)), tail(sz), Val{N})
 
-function _reshape(parent::AbstractArray, dims::Dims)
+@safeindices function _reshape(parent::AbstractArray, dims::Dims)
     prod(dims) == length(parent) || throw(DimensionMismatch("parent has $(length(parent)) elements, which is incompatible with size $dims"))
     __reshape((parent, linearindexing(parent)), dims)
 end
@@ -88,7 +88,7 @@ size_strides(out::Tuple) = out
 
 size(A::ReshapedArray) = A.dims
 size(A::ReshapedArray, d) = d <= ndims(A) ? A.dims[d] : 1
-similar(A::ReshapedArray, eltype::Type) = similar(parent(A), eltype, size(A))
+similar(A::ReshapedArray, eltype::Type) = similar(parent(A), eltype, shape(A))
 similar(A::ReshapedArray, eltype::Type, dims::Dims) = similar(parent(A), eltype, dims)
 linearindexing{R<:ReshapedArrayLF}(::Type{R}) = LinearFast()
 parent(A::ReshapedArray) = A.parent

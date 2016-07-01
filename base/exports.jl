@@ -577,6 +577,7 @@ export
     rot180,
     rotl90,
     rotr90,
+    @safeindices,
     searchsorted,
     searchsortedfirst,
     searchsortedlast,

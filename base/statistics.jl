@@ -91,7 +91,7 @@ centralize_sumabs2(A::AbstractArray, m::Number) =
 centralize_sumabs2(A::AbstractArray, m::Number, ifirst::Int, ilast::Int) =
     mapreduce_impl(centralizedabs2fun(m), +, A, ifirst, ilast)
 
-function centralize_sumabs2!{S,T,N}(R::AbstractArray{S}, A::AbstractArray{T,N}, means::AbstractArray)
+@safeindices function centralize_sumabs2!{S,T,N}(R::AbstractArray{S}, A::AbstractArray{T,N}, means::AbstractArray)
     # following the implementation of _mapreducedim! at base/reducedim.jl
     lsiz = check_reducedims(R,A)
     isempty(R) || fill!(R, zero(S))

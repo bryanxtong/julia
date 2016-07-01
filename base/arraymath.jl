@@ -271,7 +271,7 @@ function ctranspose!(B::AbstractMatrix, A::AbstractVector)
 end
 
 const transposebaselength=64
-function transpose_f!(f,B::AbstractMatrix,A::AbstractMatrix)
+@safeindices function transpose_f!(f,B::AbstractMatrix,A::AbstractMatrix)
     indices(B,1) == indices(A,2) && indices(B,2) == indices(A,1) || throw(DimensionMismatch(string(f)))
 
     m, n = size(A)

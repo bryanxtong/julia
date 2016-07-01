@@ -199,7 +199,7 @@ stride(V::SubArray, d::Integer) = d <= ndims(V) ? strides(V)[d] : strides(V)[end
 compute_stride1(parent, I::Tuple) = compute_stride1(1, parent, 1, I)
 compute_stride1(s, parent, dim, I::Tuple{}) = s
 compute_stride1(s, parent, dim, I::Tuple{DroppedScalar, Vararg{Any}}) =
-    (@_inline_meta; compute_stride1(s*size(parent, dim), parent, dim+1, tail(I)))
+    (@_inline_meta; compute_stride1(s*size(SafeIndices(), parent, dim), parent, dim+1, tail(I)))
 compute_stride1(s, parent, dim, I::Tuple{Range, Vararg{Any}}) = s*step(I[1])
 compute_stride1(s, parent, dim, I::Tuple{Colon, Vararg{Any}}) = s
 compute_stride1(s, parent, dim, I::Tuple{Any, Vararg{Any}}) = throw(ArgumentError("invalid strided index type $(typeof(I[1]))"))
@@ -216,7 +216,7 @@ function first_index(P::AbstractArray, indexes::Tuple)
     s = 1
     for i = 1:length(indexes)
         f += (_first(indexes[i], P, i)-first(indices(P, i)))*s
-        s *= size(P, i)
+        s *= size(SafeIndices(), P, i)
     end
     f
 end
@@ -237,14 +237,14 @@ compute_offset1(parent, stride1::Integer, dims, inds, I::Tuple) = compute_linind
 
 compute_linindex(parent, I) = compute_linindex(1, 1, parent, 1, I)
 compute_linindex(f, s, parent, dim, I::Tuple{Real, Vararg{Any}}) =
-    (@_inline_meta; compute_linindex(f + (I[1]-first(indices(parent,dim)))*s, s*size(parent, dim), parent, dim+1, tail(I)))
+    (@_inline_meta; compute_linindex(f + (I[1]-first(indices(parent,dim)))*s, s*size(SafeIndices(), parent, dim), parent, dim+1, tail(I)))
 # Just splat out the cartesian indices and continue
 compute_linindex(f, s, parent, dim, I::Tuple{AbstractCartesianIndex, Vararg{Any}}) =
     (@_inline_meta; compute_linindex(f, s, parent, dim, (I[1].I..., tail(I)...)))
 compute_linindex(f, s, parent, dim, I::Tuple{Colon, Vararg{Any}}) =
-    (@_inline_meta; compute_linindex(f, s*size(parent, dim), parent, dim+1, tail(I)))
+    (@_inline_meta; compute_linindex(f, s*size(SafeIndices(), parent, dim), parent, dim+1, tail(I)))
 compute_linindex(f, s, parent, dim, I::Tuple{Any, Vararg{Any}}) =
-    (@_inline_meta; compute_linindex(f + (first(I[1])-first(indices(parent,dim)))*s, s*size(parent, dim), parent, dim+1, tail(I)))
+    (@_inline_meta; compute_linindex(f + (first(I[1])-first(indices(parent,dim)))*s, s*size(SafeIndices(), parent, dim), parent, dim+1, tail(I)))
 compute_linindex(f, s, parent, dim, I::Tuple{}) = f
 
 find_extended_dims(I) = (@_inline_meta; _find_extended_dims((), (), 1, I...))

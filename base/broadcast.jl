@@ -64,7 +64,7 @@ end
 @inline _newindex(out, I, keep::Bool, indexmap...) = _newindex((out..., ifelse(keep, I[1], 1)), tail(I), indexmap...)
 
 newindexer(sz, x::Number) = ()
-@inline newindexer(sz, A) = _newindexer(sz, size(A))
+@safeindices @inline newindexer(sz, A) = _newindexer(sz, size(A))
 @inline _newindexer(sz, szA::Tuple{}) = ()
 @inline _newindexer(sz, szA) = (sz[1] == szA[1], _newindexer(tail(sz), tail(szA))...)
 
@@ -132,7 +132,7 @@ end
     end
 end
 
-@inline function broadcast!{nargs}(f, B::AbstractArray, As::Vararg{Any,nargs})
+@safeindices @inline function broadcast!{nargs}(f, B::AbstractArray, As::Vararg{Any,nargs})
     check_broadcast_shape(shape(B), As...)
     sz = size(B)
     mapindex = map(x->newindexer(sz, x), As)
@@ -175,7 +175,7 @@ end
     end
 end
 
-function broadcast_t(f, ::Type{Any}, As...)
+@safeindices function broadcast_t(f, ::Type{Any}, As...)
     shp = broadcast_shape(As...)
     iter = CartesianRange(shp)
     if isempty(iter)
@@ -218,12 +218,12 @@ end
 @inline bitbroadcast(f, As...) = broadcast!(f, allocate_for(BitArray, As, broadcast_shape(As...)), As...)
 
 broadcast_getindex(src::AbstractArray, I::AbstractArray...) = broadcast_getindex!(Array{eltype(src)}(broadcast_shape(I...)), src, I...)
-@generated function broadcast_getindex!(dest::AbstractArray, src::AbstractArray, I::AbstractArray...)
+@safeindices @generated function broadcast_getindex!(dest::AbstractArray, src::AbstractArray, I::AbstractArray...)
     N = length(I)
     Isplat = Expr[:(I[$d]) for d = 1:N]
     quote
         @nexprs $N d->(I_d = I[d])
-        check_broadcast_shape(size(dest), $(Isplat...))  # unnecessary if this function is never called directly
+        check_broadcast_shape(shape(dest), $(Isplat...))  # unnecessary if this function is never called directly
         checkbounds(src, $(Isplat...))
         @nloops $N i dest d->(@nexprs $N k->(j_d_k = size(I_k, d) == 1 ? 1 : i_d)) begin
             @nexprs $N k->(@inbounds J_k = @nref $N I_k d->j_d_k)
@@ -233,7 +233,7 @@ broadcast_getindex(src::AbstractArray, I::AbstractArray...) = broadcast_getindex
     end
 end
 
-@generated function broadcast_setindex!(A::AbstractArray, x, I::AbstractArray...)
+@safeindices @generated function broadcast_setindex!(A::AbstractArray, x, I::AbstractArray...)
     N = length(I)
     Isplat = Expr[:(I[$d]) for d = 1:N]
     quote

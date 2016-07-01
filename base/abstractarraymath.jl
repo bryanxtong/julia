@@ -11,7 +11,7 @@ transpose(a::AbstractArray) = error("transpose not implemented for $(typeof(a)).
 
 ## Constructors ##
 
-vec(a::AbstractArray) = reshape(a,length(a))
+@safeindices vec(a::AbstractArray) = reshape(a,length(a))
 vec(a::AbstractVector) = a
 
 _sub(::Tuple{}, ::Tuple{}) = ()
@@ -69,7 +69,7 @@ function flipdim(A::AbstractVector, d::Integer)
     reverse(A)
 end
 
-function flipdim(A::AbstractArray, d::Integer)
+@safeindices function flipdim(A::AbstractArray, d::Integer)
     nd = ndims(A)
     if d > nd || isempty(A)
         return copy(A)
@@ -107,7 +107,7 @@ function circshift{T,N}(a::AbstractArray{T,N}, shiftamts)
 end
 
 # Uses K-B-N summation
-function cumsum_kbn{T<:AbstractFloat}(v::AbstractVector{T})
+@safeindices function cumsum_kbn{T<:AbstractFloat}(v::AbstractVector{T})
     r = similar(v)
     if isempty(v); return r; end
 

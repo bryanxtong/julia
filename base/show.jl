@@ -1231,8 +1231,8 @@ function alignment(io::IO, X::AbstractVecOrMat,
             break
         end
     end
-    if 1 < length(a) < size(X,2)
-        while sum(map(sum,a)) + sep*length(a) >= cols_otherwise
+    if 1 < length(SafeIndices(), a) < size(SafeIndices(),X,2)
+        while sum(map(sum,a)) + sep*length(SafeIndices(),a) >= cols_otherwise
             pop!(a)
         end
     end
@@ -1257,7 +1257,7 @@ The corresponding alignment A is used, and the separation between elements
 is specified as string sep.
 `print_matrix_row` will also respect compact output for elements.
 """
-function print_matrix_row(io::IO,
+@safeindices function print_matrix_row(io::IO,
         X::AbstractVecOrMat, A::Vector,
         i::Integer, cols::AbstractVector, sep::AbstractString)
     isempty(A) || first(indices(cols,1)) == 1 || throw(DimensionMismatch("indices of cols ($(indices(cols,1))) must start at 1"))
@@ -1310,7 +1310,7 @@ string post on the end of the last row of the matrix.
 Also options to use different ellipsis characters hdots,
 vdots, ddots. These are repeated every hmod or vmod elements.
 """
-function print_matrix(io::IO, X::AbstractVecOrMat,
+@safeindices function print_matrix(io::IO, X::AbstractVecOrMat,
                       pre::AbstractString = " ",  # pre-matrix string
                       sep::AbstractString = "  ", # separator between elements
                       post::AbstractString = "",  # post-matrix string
@@ -1428,7 +1428,7 @@ summary(a::AbstractArray) =
     string(dims2string(size(a)), " ", typeof(a))
 
 # n-dimensional arrays
-function show_nd(io::IO, a::AbstractArray, print_matrix, label_slices)
+@safeindices function show_nd(io::IO, a::AbstractArray, print_matrix, label_slices)
     limit::Bool = get(io, :limit, false)
     if isempty(a)
         return
@@ -1475,7 +1475,7 @@ end
 """
 `print_matrix_repr(io, X)` prints matrix X with opening and closing square brackets.
 """
-function print_matrix_repr(io, X::AbstractArray)
+@safeindices function print_matrix_repr(io, X::AbstractArray)
     limit = get(io, :limit, false)::Bool
     compact, prefix = array_eltype_show_how(X)
     if compact && !haskey(io, :compact)
@@ -1593,7 +1593,7 @@ function array_eltype_show_how(X)
     isleaftype(e), (!isempty(X) && (e===Float64 || e===Int || e===Char) ? "" : str)
 end
 
-function show_vector(io::IO, v, opn, cls)
+@safeindices function show_vector(io::IO, v, opn, cls)
     compact, prefix = array_eltype_show_how(v)
     limited = get(io, :limit, false)
     if compact && !haskey(io, :compact)

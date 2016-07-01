@@ -474,7 +474,7 @@ end
 
 ## sorting multi-dimensional arrays ##
 
-function sort(A::AbstractArray, dim::Integer;
+@safeindices function sort(A::AbstractArray, dim::Integer;
               alg::Algorithm=DEFAULT_UNSTABLE,
               lt=isless,
               by=identity,

@@ -23,6 +23,36 @@ end
 
 size{T,N}(t::AbstractArray{T,N}, d) = d <= N ? size(t)[d] : 1
 size{N}(x, d1::Integer, d2::Integer, dx::Vararg{Integer, N}) = (size(x, d1), size(x, d2), ntuple(k->size(x, dx[k]), Val{N})...)
+
+# trait to indicate "vetted" usage for indexing that may not start at 1
+abstract IndicesSafety
+immutable SafeIndices <: IndicesSafety end
+immutable UnsafeIndices <: IndicesSafety end
+
+macro safeindices(ex)
+    esc(_safeindices(ex))
+end
+
+function _safeindices(ex::Expr)
+    if ex.head == :call
+        f = ex.args[1]
+        if f == :size || f == :length
+            return Expr(:call, f, :(Base.SafeIndices()), ex.args[2:end]...)
+        end
+    end
+    return Expr(ex.head, map(_safeindices, ex.args)...)
+end
+
+_safeindices(arg) = arg
+
+# The default is that size is safe, but array types that use non-1
+# indexing should specialize this to make it unsafe without
+# SafeIndices().
+size( ::IndicesSafety, A)                   = size(A)
+size( ::IndicesSafety, A::AbstractArray, d) = size(A,d)  # fixme
+# size(s::IndicesSafety, A::AbstractArray, d) = d <= ndims(A) ? size(s, A)[d] : 1
+size{N}(s::IndicesSafety, A::AbstractArray, d1::Integer, d2::Integer, dx::Vararg{Integer, N}) = (size(s, A, d1), size(s, A, d2), ntuple(k->size(s, A, dx[k]), Val{N})...)
+
 """
     indices(A, d)
 
@@ -30,7 +60,7 @@ Returns the valid range of indices for array `A` along dimension `d`.
 """
 function indices(A::AbstractArray, d)
     @_inline_meta
-    1:size(A,d)
+    1:size(SafeIndices(),A,d)
 end
 """
     indices(A)
@@ -61,7 +91,7 @@ is `indices(A, 1)`.
 Calling this function is the "safe" way to write algorithms that
 exploit linear indexing.
 """
-linearindices(A) = 1:length(A)
+linearindices(A) = 1:length(SafeIndices(), A)
 linearindices(A::AbstractVector) = indices1(A)
 eltype{T}(::Type{AbstractArray{T}}) = T
 eltype{T,N}(::Type{AbstractArray{T,N}}) = T
@@ -69,7 +99,9 @@ elsize{T}(::AbstractArray{T}) = sizeof(T)
 ndims{T,N}(::AbstractArray{T,N}) = N
 ndims{T,N}(::Type{AbstractArray{T,N}}) = N
 ndims{T<:AbstractArray}(::Type{T}) = ndims(supertype(T))
-length(t::AbstractArray) = prod(size(t))::Int
+length(s::IndicesSafety, t::AbstractArray) = prod(size(s,t))
+length(s::IndicesSafety, t) = length(t)
+length(t::AbstractArray) = length(UnsafeIndices(), t)
 endof(a::AbstractArray) = length(a)
 first(a::AbstractArray) = a[first(eachindex(a))]
 
@@ -120,13 +152,14 @@ function isassigned(a::AbstractArray, i::Int...)
 end
 
 # used to compute "end" for last index
-function trailingsize(A, n)
-    s = 1
+function trailingsize(s::IndicesSafety, A, n)
+    sz = 1
     for i=n:ndims(A)
-        s *= size(A,i)
+        sz *= size(s,A,i)
     end
-    return s
+    return sz
 end
+trailingsize(A, n) = trailingsize(UnsafeIndices(), A, n)
 
 ## Traits for array types ##
 
@@ -178,21 +211,22 @@ start at something different from 1), it is equivalent to `indices(A,
 d)`.
 """
 shape(a, d) = shape(indicesbehavior(a), a, d)
-shape(::IndicesStartAt1, a) = size(a)
-shape(::IndicesStartAt1, a, d) = size(a, d)
+shape(::IndicesStartAt1, a) = size(SafeIndices(), a)
+shape(::IndicesStartAt1, a, d) = size(SafeIndices(), a, d)
 shape(::IndicesBehavior, a) = indices(a)
 shape(::IndicesBehavior, a, d) = indices(a, d)
 
 ## Bounds checking ##
-@generated function trailingsize{T,N,n}(A::AbstractArray{T,N}, ::Type{Val{n}})
+@generated function trailingsize{T,N,n}(s::IndicesSafety, A::AbstractArray{T,N}, ::Type{Val{n}})
     (isa(n, Int) && isa(N, Int)) || error("Must have concrete type")
     n > N && return 1
-    ex = :(size(A, $n))
+    ex = :(size(s, A, $n))
     for m = n+1:N
-        ex = :($ex * size(A, $m))
+        ex = :($ex * size(s, A, $m))
     end
     Expr(:block, Expr(:meta, :inline), ex)
 end
+trailingsize{n}(A::AbstractArray, ::Type{Val{n}}) = trailingsize(UnsafeIndices(), A, Val{n})
 
 # check along a single dimension
 """
@@ -265,13 +299,9 @@ _chkbnds(A::AbstractArray, ::NTuple{1,Bool}, I::AbstractVector{Bool}) = length(A
 _chkbnds(A::AbstractVector, ::NTuple{1,Bool}, I::AbstractArray{Bool}) = length(A) == length(I)
 _chkbnds(A::AbstractVector, ::NTuple{1,Bool}, I::AbstractVector{Bool}) = indices(A) == indices(I)
 # Linear indexing:
-function _chkbnds(A::AbstractVector, ::NTuple{1,Bool}, I)
-    @_inline_meta
-    checkindex(Bool, indices1(A), I)
-end
 function _chkbnds(A::AbstractArray, ::NTuple{1,Bool}, I)
     @_inline_meta
-    checkindex(Bool, 1:length(A), I)
+    checkindex(Bool, linearindices(A), I)
 end
 # When all indices have been checked:
 _chkbnds{M}(A, checked::NTuple{M,Bool}) = checked[M]
@@ -359,7 +389,7 @@ similar(   a::AbstractArray, T::Type, dims::DimsInteger) = similar(a, T, convert
 # similar creates an Array by default
 similar(   a::AbstractArray, T::Type, dims::Dims)        = Array(T, dims)
 
-_similar(::IndicesStartAt1, a::AbstractArray, T::Type)   = similar(a, T, size(a))
+_similar(::IndicesStartAt1, a::AbstractArray, T::Type)   = similar(a, T, size(SafeIndices(), a))
 _similar(::IndicesBehavior, a::AbstractArray, T::Type)   = similar(a, T, indices(a))
 
 """
@@ -525,7 +555,7 @@ function copy!(::LinearIndexing, dest::AbstractArray, ::LinearSlow, src::Abstrac
 end
 
 function copy!(dest::AbstractArray, dstart::Integer, src::AbstractArray)
-    copy!(dest, dstart, src, first(linearindices(src)), length(src))
+    copy!(dest, dstart, src, first(linearindices(src)), length(SafeIndices(), src))
 end
 
 function copy!(dest::AbstractArray, dstart::Integer, src::AbstractArray, sstart::Integer)
@@ -650,7 +680,7 @@ function _maxlength(A, B, C...)
     max(length(A), _maxlength(B, C...))
 end
 
-isempty(a::AbstractArray) = (length(a) == 0)
+isempty(a::AbstractArray) = (length(SafeIndices(), a) == 0)
 
 ## Conversions ##
 
@@ -1417,7 +1447,7 @@ function mapslices(f, A::AbstractArray, dims::AbstractVector)
         idx[d] = Colon()
     end
 
-    r1 = f(view(A, idx...))
+    r1 = f(A[idx...])
 
     # determine result size and allocate
     Rsize = copy(dimsA)
@@ -1427,7 +1457,7 @@ function mapslices(f, A::AbstractArray, dims::AbstractVector)
     end
     nextra = max(0,length(dims)-ndims(r1))
     if eltype(Rsize) == Int
-        Rsize[dims] = [size(r1)..., ntuple(d->1, nextra)...]
+        Rsize[dims] = [size(SafeIndices(), r1)..., ntuple(d->1, nextra)...]
     else
         Rsize[dims] = [indices(r1)..., ntuple(d->1:1, nextra)...]
     end

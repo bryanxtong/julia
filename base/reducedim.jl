@@ -150,7 +150,7 @@ reducedim_init(f::Union{typeof(identity),typeof(abs),typeof(abs2)}, op::typeof(+
 has_fast_linear_indexing(a::AbstractArray) = false
 has_fast_linear_indexing(a::Array) = true
 
-function check_reducedims(R, A)
+@safeindices function check_reducedims(R, A)
     # Check whether R has compatible dimensions w.r.t. A for reduction
     #
     # It returns an integer value (useful for choosing implementation)
@@ -184,7 +184,7 @@ function check_reducedims(R, A)
     return lsiz
 end
 
-function _mapreducedim!{T,N}(f, op, R::AbstractArray, A::AbstractArray{T,N})
+@safeindices function _mapreducedim!{T,N}(f, op, R::AbstractArray, A::AbstractArray{T,N})
     lsiz = check_reducedims(R,A)
     isempty(A) && return R
     sizA1 = size(A, 1)
@@ -271,7 +271,7 @@ end
 
 ##### findmin & findmax #####
 
-function findminmax!{T,N}(f, Rval, Rind, A::AbstractArray{T,N})
+@safeindices function findminmax!{T,N}(f, Rval, Rind, A::AbstractArray{T,N})
     (isempty(Rval) || isempty(A)) && return Rval, Rind
     check_reducedims(Rval, A)
     for i = 1:N

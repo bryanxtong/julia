@@ -3464,7 +3464,7 @@ void jl_init_types(void)
     jl_sym_type = jl_new_uninitialized_datatype(0, 1);
     jl_symbol_type = jl_sym_type;
     jl_simplevector_type = jl_new_uninitialized_datatype(1, 1);
-    jl_methtable_type = jl_new_uninitialized_datatype(6, 1);
+    jl_methtable_type = jl_new_uninitialized_datatype(8, 1);
     jl_nothing = jl_gc_alloc_0w();
 
     jl_emptysvec = (jl_svec_t*)newobj((jl_value_t*)jl_simplevector_type, 1);
@@ -3534,11 +3534,12 @@ void jl_init_types(void)
     jl_methtable_type->name->mt = jl_new_method_table(jl_methtable_type->name->name, jl_current_module);
     jl_methtable_type->super = jl_any_type;
     jl_methtable_type->parameters = jl_emptysvec;
-    jl_methtable_type->name->names = jl_svec(6, jl_symbol("name"), jl_symbol("defs"),
+    jl_methtable_type->name->names = jl_svec(8, jl_symbol("name"), jl_symbol("defs"),
                                              jl_symbol("cache"), jl_symbol("max_args"),
-                                             jl_symbol("kwsorter"), jl_symbol("module"));
-    jl_methtable_type->types = jl_svec(6, jl_sym_type, jl_any_type, jl_any_type, jl_any_type,
-                                       jl_any_type, jl_any_type);
+                                             jl_symbol("kwsorter"), jl_symbol("module"),
+                                             jl_symbol(""), jl_symbol(""));
+    jl_methtable_type->types = jl_svec(8, jl_sym_type, jl_any_type, jl_any_type, jl_any_type/*jl_long*/,
+                                       jl_any_type, jl_any_type/*module*/, jl_any_type/*long*/, jl_any_type/*int32*/);
     jl_methtable_type->uid = jl_assign_type_uid();
     jl_methtable_type->instance = NULL;
     jl_methtable_type->struct_decl = NULL;
@@ -3919,6 +3920,12 @@ void jl_init_types(void)
     jl_svecset(jl_simplevector_type->types, 0, jl_long_type);
     jl_svecset(jl_typename_type->types, 6, jl_long_type);
     jl_svecset(jl_methtable_type->types, 3, jl_long_type);
+#ifdef __LP64__
+    jl_svecset(jl_methtable_type->types, 6, jl_int64_type); // unsigned long
+#else
+    jl_svecset(jl_methtable_type->types, 6, jl_int32_type); // DWORD
+#endif
+    jl_svecset(jl_methtable_type->types, 7, jl_int32_type); // uint32_t
     jl_svecset(jl_lambda_info_type->types, 21, jl_voidpointer_type);
     jl_svecset(jl_lambda_info_type->types, 22, jl_voidpointer_type);
     jl_svecset(jl_lambda_info_type->types, 23, jl_voidpointer_type);
